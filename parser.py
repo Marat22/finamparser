@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.request import urlopen
 from os.path import exists
-
+import time
 
 import typing
 
@@ -32,14 +32,17 @@ class FormError(Exception):
     pass
 
 
-def check_for_errors(start_time: datetime.date, end_time: datetime.date, extension: str, separator: str,
+def check_for_errors(start_time: datetime.date, end_time: datetime.date, extension: str,
+                     separator: str,
                      timeframe: int, form: int) -> None:
     if start_time > end_time:
         raise TimeError("start_time is bigger than end_time")
     if extension != '.csv' and extension != '.txt':
-        raise ExtensionError("impossible extension is entered(It can be either '.csv' either '.txt')")
+        raise ExtensionError(
+            "impossible extension is entered(It can be either '.csv' either '.txt')")
     if separator != ',' and separator != ';':
-        raise SeparatorError(f"impossible separator is entered(It can be either ',' either ';'). Not \"{separator}\"")
+        raise SeparatorError(
+            f"impossible separator is entered(It can be either ',' either ';'). Not \"{separator}\"")
     if type(form) != int:
         raise TypeError("form type should be int")
     elif 13 <= form or form <= 0:
@@ -70,14 +73,9 @@ def get_date_from_file(form: int, line: str, separator: str) -> datetime.date:
     elif form == 7 or form == 8:
         return (datetime.strptime(line.split(separator)[1], f"%Y%m%d")).date()
 
-def make_or_clear_result_folder(result_folder: Path) -> None:
-    if exists(result_folder):
-        all_files = os.listdir(result_folder)
-        for f in all_files:
-            os.remove(str(result_folder) + "\\" + f)
 
-        result_folder.mkdir(parents=True, exist_ok=True)
-    else:
+def make_result_folder(result_folder: Path) -> None:
+    if not exists(result_folder):
         result_folder.mkdir(parents=True, exist_ok=True)
 
 
@@ -93,21 +91,28 @@ def make_ticks_file(date: datetime.date, market: str, em: str, time_frame: int, 
         ends_of_futures = make_ends_of_borders_list(borders_path=borders)
 
     with urlopen(request) as f:
+        try:
+            file_content = f.read().decode().replace("\r", "")
+            lines = file_content.split("\n")
 
-        file_content = f.read().decode().replace("\r", "")
-        lines = file_content.split("\n")
+            if lines != [""]:
+                day = get_date_from_file(line=lines[1], form=form, separator=separator["str"])
 
-        if lines != [""]:
-            day = get_date_from_file(line=lines[1], form=form, separator=separator["str"])
+                make_file(start_time=day, file_content=file_content, now_date=day,
+                          separator=separator["int"],
+                          contract_name=contract_name, extension=extension,
+                          ends_of_futures=ends_of_futures,
+                          daily=daily, result_folder=result_folder, closing_by_end_of_future=False)
+            else:
+                print(f"On {date} there were no trades")
+                time.sleep(2)
+        except UnicodeDecodeError:
+            print(f"Decode Error on {date}")
+            time.sleep(2)
 
-            make_file(start_time=day, file_content=file_content, now_date=day, separator=separator["int"],
-                      contract_name=contract_name, extension=extension, ends_of_futures=ends_of_futures,
-                      daily=daily, result_folder=result_folder, closing_by_end_of_future=False)
-        else:
-            print(f"On {date} there were no trades")
 
-
-def make_files_for_not_ticks(form: int, daily: bool, f: any, ends_of_futures: dict[datetime.date, datetime.date],
+def make_files_for_not_ticks(form: int, daily: bool, f: any,
+                             ends_of_futures: dict[datetime.date, datetime.date],
                              entered_params: dict[str, typing.Union[str, int]],
                              separator: dict[str, typing.Union[int, str]], borders: Path):
     """if not ticks runs through the file and writes information from it into the file(-s) in the needed folder"""
@@ -131,8 +136,10 @@ def make_files_for_not_ticks(form: int, daily: bool, f: any, ends_of_futures: di
             del ends_of_futures[now_date]
 
         elif line_index == len(file) - 2 or (daily and file_content != first_string
-                                             and get_date_from_file(form=form, line=file[line_index + 1],
-                                                                    separator=separator["str"]) != now_date):
+                                             and get_date_from_file(form=form,
+                                                                    line=file[line_index + 1],
+                                                                    separator=separator[
+                                                                        "str"]) != now_date):
             if line_index != len(file) - 2:
                 start_file_date = get_date_from_file(form=form, line=file_content.split("\n")[1],
                                                      separator=separator["str"])
@@ -145,13 +152,15 @@ def make_files_for_not_ticks(form: int, daily: bool, f: any, ends_of_futures: di
 
 
 def take_files_from_finam(start_time: datetime.date, end_time: datetime.date, daily: bool,
-                          market: str, em: str,  # em это цифровой символ, который соответствует бумаге
+                          market: str, em: str,
+                          # em это цифровой символ, который соответствует бумаге
                           contract_name: str, time_frame: int, result_folder: Path, separator: str,
                           extension: str, form: int, borders: Path = None) -> None:
-    """the main function that sorts in needed way data parsed from Finam and then saves this data in files"""
+    """the main function that sorts in needed way data parsed from Finam and then saves this
+    data in files """
     check_for_errors(start_time, end_time, extension, separator, time_frame, form)
 
-    make_or_clear_result_folder(result_folder=result_folder)
+    make_result_folder(result_folder=result_folder)
 
     separator = separator_reformat(separator)
     entered_params = {
@@ -179,4 +188,5 @@ def take_files_from_finam(start_time: datetime.date, end_time: datetime.date, da
 
         with urlopen(request) as f:
             make_files_for_not_ticks(form=form, daily=daily, f=f, ends_of_futures=ends_of_futures,
-                                     entered_params=entered_params, separator=separator, borders=borders)
+                                     entered_params=entered_params, separator=separator,
+                                     borders=borders)

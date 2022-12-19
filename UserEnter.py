@@ -30,14 +30,16 @@ import parser
 # f(**a, 7)
 
 
-parser.take_files_from_finam(start_time=date(year=2022, month=10, day=3), end_time=date(year=2022, month=10, day=7),
+parser.take_files_from_finam(start_time=date(year=2013, month=1, day=1),
+                             end_time=date(year=2022, month=1, day=20),
                              daily=True,
                              market='14', em='17455',
                              contract_name='spfb.rts',  # (code)
                              time_frame=1,
-                             borders=Path(r"C:\programs\python\mathclub\parser\boards\90futures_RTS.csv"),
-                             result_folder=Path(r"C:\Users\Home\Desktop\test"),
+                             borders=Path(r"C:\programs\python\mathclub\parser\boards"
+                                          r"\90futures_RTS.csv"),
+                             result_folder=Path(r"C:\programs\python\mathclub\parser\result"),
                              separator=",",
                              extension='.csv',
-                             form=12)
+                             form=11)
 
